@@ -1,0 +1,66 @@
+# Help Desk Voice Bot Implemention Plan
+
+This document outlines the architecture and implementation details for the Help Desk Voice Bot.
+
+## Proposed Architecture
+
+The system will use a highly modular provider pattern to abstract the underlying services (LLM, Vector Store, Embeddings, STT, and TTS), making them easily swappable. We'll use the latest `langchain` and `langgraph` ecosystem for orchestration.
+
+### Component Structure
+
+```text
+Voice-bot/
+├── backend/                  # FastAPI Backend serving RAG and Voice logic
+│   ├── core/
+│   │   ├── config.py         # Environment & configuration settings
+│   │   ├── interfaces.py     # Abstract Base Classes (ABCs) for Providers
+│   ├── providers/
+│   │   ├── llm/
+│   │   │   ├── base.py
+│   │   │   └── openrouter.py # OpenRouter implementation (google/gemma-3n-e4b-it:free)
+│   │   ├── vectorstore/
+│   │   │   ├── base.py
+│   │   │   └── pinecone_store.py
+│   │   ├── embeddings/
+│   │   │   ├── base.py
+│   │   │   └── _huggingface.py
+│   │   ├── stt/
+│   │   │   ├── base.py
+│   │   │   └── local_whisper.py # Local Whisper STT
+│   │   └── tts/
+│   │       ├── base.py
+│   │       └── local_tts.py     # Local pyttsx3 or Edge-TTS
+│   ├── rag/
+│   │   ├── document_loader.py
+│   │   └── chain.py
+│   ├── voice/
+│   │   ├── processor.py      # Logic to handle audio bytes -> text -> RAG -> audio bytes
+│   ├── api/
+│   │   └── routes.py         # FastAPI endpoints
+│   ├── main.py               # FastAPI application entrypoint
+│   └── requirements.txt
+├── frontend/                 # Streamlit UI
+│   ├── app.py                # Main UI connecting to backend APIs
+│   └── requirements.txt
+└── .env.example
+```
+
+## Core Implementation Details
+
+1. **LLM Provider**: LangChain's `ChatOpenAI` pointed to OpenRouter (`google/gemma-3n-e4b-it:free`).
+2. **Embeddings Provider**: LangChain's `HuggingFaceEmbeddings` for Gemma/generic embeddings compatible with Pinecone.
+3. **Vector Store**: `PineconeVectorStore` for the knowledge base.
+4. **Speech Providers**: Local Whisper for STT and a local TTS library (e.g., edge-tts or pyttsx3) to process voice locally without API costs.
+5. **Decoupled Architecture**: 
+   - **Backend**: FastAPI serving endpoints like `/api/chat` (text) and `/api/voice` (receives audio, returns audio).
+   - **Frontend**: Streamlit application with audio recording capabilities (e.g., using `st-audiorec` or similar component).
+
+## Verification Plan
+
+### Automated Tests
+- Simple unit tests verifying that each Provider can be instantiated and initialized.
+- Test connection to OpenRouter API and Pinecone API.
+
+### Manual Verification
+- Ingest a sample document.
+- Speak to the bot (or type), verify it queries Pinecone correctly, generates a response via Gemma 3, and outputs back in voice/text.
